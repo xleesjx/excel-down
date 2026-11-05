@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>통합예약 엑셀 일괄 받기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#F4F6F8;--card:#FFFFFF;--line:#E2E8F0;--ink:#0F172A;--muted:#475569;--accent:#1D4ED8;--accent-ink:#FFFFFF;--warn-bg:#FFF7ED;--warn-line:#FED7AA}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#0F172A;--card:#1E293B;--line:#334155;--ink:#F1F5F9;--muted:#CBD5E1;--accent:#93B4FF;--accent-ink:#0F172A;--warn-bg:#3B2A14;--warn-line:#7C4A12}}
+:root[data-theme="dark"]{--bg:#0F172A;--card:#1E293B;--line:#334155;--ink:#F1F5F9;--muted:#CBD5E1;--accent:#93B4FF;--accent-ink:#0F172A;--warn-bg:#3B2A14;--warn-line:#7C4A12}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 "Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:40px 16px 64px;display:flex;flex-direction:column;gap:20px}
+h1{font-size:28px;margin:0}
+h2{font-size:19px;margin:0 0 8px}
+p{margin:0}
+.muted{color:var(--muted)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px}
+ol,ul{margin:8px 0 0;padding-left:22px}
+li+li{margin-top:6px}
+.bm{display:inline-flex;align-items:center;gap:8px;margin:14px 0 6px;padding:12px 20px;min-height:48px;border-radius:10px;background:var(--accent);color:var(--accent-ink);font-weight:700;text-decoration:none;cursor:grab;border:2px dashed transparent}
+.bm.alt{background:transparent;color:var(--ink);border-color:var(--line)}
+.warn{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:10px;padding:12px 14px}
+code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:1px 6px;font-size:14px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>통합예약 엑셀 일괄 받기</h1>
+    <p class="muted">통합예약 목록에서 <strong>접수중</strong>인 수업의 신청자 엑셀을 버튼 한 번으로 모두 내려받습니다.</p>
+  </header>
+
+  <section class="card">
+    <h2>1. 버튼 설치 (처음 한 번)</h2>
+    <ol>
+      <li>크롬 즐겨찾기바가 안 보이면 <code>Ctrl + Shift + B</code>를 누릅니다.</li>
+      <li>아래 파란 버튼을 마우스로 <strong>끌어서 즐겨찾기바에 놓습니다.</strong> (클릭하지 말고 끌어다 놓기)</li>
+    </ol>
+    <a class="bm" id="bmMain" href="#" title="즐겨찾기바로 끌어다 놓으세요">통합예약 엑셀 일괄 받기</a>
+    <p class="muted" style="font-size:14px">프로그램을 고치면 다시 설치하지 않아도 다음 클릭부터 새 버전이 적용됩니다.</p>
+  </section>
+
+  <section class="card">
+    <h2>2. 사용하기</h2>
+    <ol>
+      <li>통합예약 관리자 페이지에 <strong>직접 로그인</strong>합니다.</li>
+      <li><strong>통합예약 관리 › 통합예약</strong> 목록 화면(수업 목록과 [신청 관리] 버튼이 보이는 화면)으로 갑니다.</li>
+      <li>즐겨찾기바의 <strong>[통합예약 엑셀 일괄 받기]</strong>를 누릅니다.</li>
+      <li>접수중인 수업 목록을 확인하고 <strong>[○개 받기]</strong>를 누릅니다.</li>
+      <li>다 받으면 점검 웹앱에서 평소처럼 <strong>[명단 올리기]</strong>를 누릅니다.</li>
+    </ol>
+    <p class="muted" style="margin-top:10px">접수마감 수업은 대상이 아닙니다. 필요하면 직접 받아 주세요.</p>
+  </section>
+
+  <section class="card">
+    <h2>3. 크롬 설정 (처음 한 번)</h2>
+    <ul>
+      <li>크롬 설정 › 다운로드 › <strong>「다운로드 전에 각 파일의 저장 위치 확인」을 끕니다.</strong> 켜져 있으면 파일마다 저장 창이 뜹니다.</li>
+      <li>처음 실행할 때 주소창 아래에 <strong>「여러 파일 다운로드」</strong> 허용 창이 뜨면 <strong>[허용]</strong>을 누릅니다. 한 번 허용하면 다음부터는 묻지 않습니다.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>버튼을 눌러도 아무 반응이 없을 때</h2>
+    <p>관리자 사이트가 외부 프로그램 불러오기를 막는 경우입니다. 아래 <strong>비상용 버튼</strong>을 같은 방법으로 끌어다 놓고 그것을 쓰세요. 프로그램이 버튼 안에 통째로 들어 있어서, 고친 버전이 나오면 이 페이지에서 다시 끌어다 놓아야 합니다.</p>
+    <a class="bm alt" id="bmInline" href="#" title="즐겨찾기바로 끌어다 놓으세요">통합예약 엑셀 일괄 받기 (비상용)</a>
+    <p class="muted" id="inlineState" style="font-size:14px">준비 중…</p>
+  </section>
+
+  <p class="warn">이 버튼은 선생님이 로그인한 화면에서만 동작하며, 아이디·비밀번호나 신청자 정보를 어디에도 보내거나 저장하지 않습니다. 엑셀은 관리자 사이트에서 [엑셀출력]을 누른 것과 똑같이 받아집니다.</p>
+</main>
+<script>
+(function () {
+  var base = new URL('downloader.js', location.href).href;
+  var loader = "javascript:(function(){var s=document.createElement('script');s.charset='utf-8';s.src='" +
+    base + "?t='+Date.now();s.onerror=function(){alert('통합예약 엑셀 일괄 받기\\n\\n프로그램을 불러오지 못했습니다. 설치 안내 페이지의 비상용 버튼을 사용해 주세요.')};document.body.appendChild(s);})();";
+  var main = document.getElementById('bmMain');
+  main.href = loader;
+  main.addEventListener('click', function (e) {
+    e.preventDefault();
+    alert('클릭하지 말고, 이 버튼을 마우스로 끌어서 즐겨찾기바에 놓아 주세요.');
+  });
+
+  var inline = document.getElementById('bmInline');
+  var state = document.getElementById('inlineState');
+  inline.addEventListener('click', function (e) {
+    e.preventDefault();
+    alert('클릭하지 말고, 이 버튼을 마우스로 끌어서 즐겨찾기바에 놓아 주세요.');
+  });
+  fetch(base, { cache: 'no-store' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+    .then(function (code) {
+      var m = /VERSION = '([^']+)'/.exec(code);
+      inline.href = 'javascript:' + encodeURIComponent(code.replace(/^\/\*![\s\S]*?\*\/\s*/, ''));
+      state.textContent = '버전 ' + (m ? m[1] : '') + ' 준비됨';
+    })
+    .catch(function () {
+      state.textContent = '비상용 버튼을 준비하지 못했습니다. 페이지를 새로고침해 주세요.';
+    });
+})();
+</script>
+</body>
+</html>
