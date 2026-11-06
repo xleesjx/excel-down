@@ -12,7 +12,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.2.0';
+  var VERSION = '1.2.1';
   var NAME = '통합예약 엑셀 일괄 받기';
   var LIST_PAGE = 'BD_selectReservationMngList.do';
   var EXCEL_URL = '/component/excel/download/ND_excelDownload.do';
@@ -350,7 +350,7 @@
   panel.setAttribute('aria-label', NAME);
   panel.innerHTML =
     '<style>' +
-    '#excelDownPanel{position:fixed;top:24px;right:24px;z-index:2147483647;width:460px;max-width:calc(100vw - 32px);' +
+    '#excelDownPanel{position:fixed;top:24px;right:24px;z-index:2147483647;width:780px;max-width:calc(100vw - 32px);' +
     'max-height:calc(100vh - 48px);overflow:auto;background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:12px;' +
     'box-shadow:0 12px 40px rgba(15,23,42,.25);font:14px/1.5 "Malgun Gothic","Noto Sans KR",system-ui,sans-serif;text-align:left}' +
     '#excelDownPanel *{box-sizing:border-box}' +
@@ -359,13 +359,14 @@
     '#excelDownPanel .xd-x{border:none;background:none;font-size:22px;line-height:1;cursor:pointer;color:#475569;padding:4px 8px;min-width:36px;min-height:36px}' +
     '#excelDownPanel .xd-body{padding:14px 16px;display:flex;flex-direction:column;gap:10px}' +
     '#excelDownPanel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}' +
-    '#excelDownPanel li{display:flex;gap:10px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px}' +
+    '#excelDownPanel li{display:flex;gap:10px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px}' +
     '#excelDownPanel li .xd-mark{min-width:56px;font-weight:700;color:#475569}' +
     '#excelDownPanel li .xd-chk{width:20px;height:20px;margin:2px 0 0;flex:none;cursor:pointer}' +
     '#excelDownPanel li label.xd-t{cursor:pointer}' +
     '#excelDownPanel .xd-badge{display:inline-block;border-radius:999px;padding:0 8px;font-size:12px;font-weight:700;margin-right:2px}' +
-    '#excelDownPanel li .xd-t{display:flex;flex-direction:column;min-width:0}' +
-    '#excelDownPanel li .xd-s{color:#475569;font-size:12px;word-break:break-all}' +
+    '#excelDownPanel li .xd-t{display:flex;flex-direction:column;min-width:0;flex:1}' +
+    '#excelDownPanel li .xd-t > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+    '#excelDownPanel li .xd-s{color:#475569;font-size:12px}' +
     '#excelDownPanel .xd-note{color:#475569;font-size:13px;margin:0}' +
     '#excelDownPanel .xd-box{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap}' +
     '#excelDownPanel .xd-warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 10px;font-size:13px;margin:0}' +
@@ -418,7 +419,7 @@
         ? '<span class="xd-badge" style="background:#ecfdf3;color:#027a48">접수중</span>'
         : '<span class="xd-badge" style="background:#fef3f2;color:#b42318">접수마감</span>';
       return '<li data-i="' + i + '"><input type="checkbox" class="xd-chk" id="xdChk' + i + '"' + (c.checked ? ' checked' : '') + '>' +
-        '<span class="xd-mark">' + (c.checked ? '대기' : '제외') + '</span><label class="xd-t" for="xdChk' + i + '"><span>' +
+        '<span class="xd-mark">' + (c.checked ? '대기' : '제외') + '</span><label class="xd-t" for="xdChk' + i + '" title="' + esc(c.title) + '"><span>' +
         badge + ' ' + esc(c.title) + '</span><span class="xd-s">' + esc([c.date, c.count].filter(Boolean).join(' · ')) +
         '</span></label></li>';
     }).join('') + '</ul>' +
