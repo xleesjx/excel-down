@@ -12,12 +12,12 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.1.0';
+  var VERSION = '1.2.0';
   var NAME = '통합예약 엑셀 일괄 받기';
   var LIST_PAGE = 'BD_selectReservationMngList.do';
   var EXCEL_URL = '/component/excel/download/ND_excelDownload.do';
   var EXCEL_KEY = 'reservationNoContsCceAplyList';
-  var STATUS_TEXT = '접수중';
+  var STATUSES = ['접수중', '접수마감']; // 이 상태 중 운영이 끝나지 않은 수업이 대상
   var FOLDER_HINT = 'C:\\통합예약명단';
   var ROW_PER_PAGE = '500'; // 엑셀에 인원이 잘리지 않도록 넉넉하게
   var GAP_MS = 1500; // 요청 사이 간격
@@ -55,6 +55,11 @@
   }
 
   // ---------- 목록 읽기 ----------
+  var TODAY = (function () {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  })();
+
   function headerIndex(table, label) {
     var ths = table.querySelectorAll('thead th');
     for (var i = 0; i < ths.length; i++) {
@@ -81,15 +86,23 @@
       var dateIdx = table ? headerIndex(table, '운영일시') : -1;
       var countIdx = table ? headerIndex(table, '신청현황') : -1;
 
-      var isOpen = false;
+      var status = '';
       if (statusIdx >= 0 && cells[statusIdx]) {
-        isOpen = clean(cells[statusIdx].textContent) === STATUS_TEXT;
+        status = clean(cells[statusIdx].textContent);
       } else {
         for (var c = 0; c < cells.length; c++) {
-          if (clean(cells[c].textContent) === STATUS_TEXT) { isOpen = true; break; }
+          if (STATUSES.indexOf(clean(cells[c].textContent)) >= 0) { status = clean(cells[c].textContent); break; }
         }
       }
-      if (!isOpen) continue;
+      if (STATUSES.indexOf(status) < 0) continue;
+
+      // 운영일시 "2026-11-07 ~ 2026-12-05 09:20 ~ 12:20" → 시작일, 종료일
+      var dateText = dateIdx >= 0 && cells[dateIdx] ? clean(cells[dateIdx].innerText) : '';
+      var days = dateText.match(/\d{4}-\d{2}-\d{2}/g) || [];
+      var startDay = days[0] || '';
+      var endDay = days[days.length - 1] || '';
+      if (endDay && endDay < TODAY) continue; // 이미 끝난 수업
+      if (!endDay && status !== '접수중') continue; // 날짜를 못 읽으면 예전처럼 접수중만
 
       var title = '';
       if (titleIdx >= 0 && cells[titleIdx]) title = clean(cells[titleIdx].textContent);
@@ -103,10 +116,22 @@
         rType: m[2],
         siteSn: m[3],
         title: title,
-        date: dateIdx >= 0 && cells[dateIdx] ? clean(cells[dateIdx].innerText) : '',
+        status: status,
+        startDay: startDay,
+        endDay: endDay,
+        date: dateText,
         count: countIdx >= 0 && cells[countIdx] ? clean(cells[countIdx].innerText) : ''
       });
     }
+    // 기본 체크: 가장 가까운 수업일(오늘 이후 시작일 중 가장 빠른 날)에 운영하는 수업만
+    var next = '';
+    found.forEach(function (f) {
+      if (f.startDay && f.startDay >= TODAY && (!next || f.startDay < next)) next = f.startDay;
+    });
+    if (!next) next = TODAY;
+    found.forEach(function (f) {
+      f.checked = !f.startDay || (f.startDay <= next && next <= f.endDay);
+    });
     return found;
   }
 
@@ -336,6 +361,9 @@
     '#excelDownPanel ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}' +
     '#excelDownPanel li{display:flex;gap:10px;align-items:flex-start;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px}' +
     '#excelDownPanel li .xd-mark{min-width:56px;font-weight:700;color:#475569}' +
+    '#excelDownPanel li .xd-chk{width:20px;height:20px;margin:2px 0 0;flex:none;cursor:pointer}' +
+    '#excelDownPanel li label.xd-t{cursor:pointer}' +
+    '#excelDownPanel .xd-badge{display:inline-block;border-radius:999px;padding:0 8px;font-size:12px;font-weight:700;margin-right:2px}' +
     '#excelDownPanel li .xd-t{display:flex;flex-direction:column;min-width:0}' +
     '#excelDownPanel li .xd-s{color:#475569;font-size:12px;word-break:break-all}' +
     '#excelDownPanel .xd-note{color:#475569;font-size:13px;margin:0}' +
@@ -376,21 +404,23 @@
 
   if (!classes.length) {
     body.innerHTML =
-      '<p style="margin:0">이 화면에 <strong>' + STATUS_TEXT + '</strong>인 수업이 없습니다.</p>' +
-      '<p class="xd-note">누리집이 「울산창의융합교육센터」인지, 검색 조건이 걸려 있지 않은지 확인해 주세요. ' +
-      '접수마감 수업은 직접 받아 주세요.</p>' +
+      '<p style="margin:0">이 화면에 <strong>운영이 끝나지 않은 접수중·접수마감 수업</strong>이 없습니다.</p>' +
+      '<p class="xd-note">누리집이 「울산창의융합교육센터」인지, 검색 조건이 걸려 있지 않은지 확인해 주세요.</p>' +
       '<p class="xd-note">버전 ' + VERSION + '</p>';
     button('닫기', 'xd-btn xd-primary', close);
     return;
   }
 
   body.innerHTML =
-    '<p style="margin:0"><strong>' + STATUS_TEXT + '</strong>인 수업 <strong>' + classes.length +
-    '개</strong>의 신청자 엑셀을 받을까요?</p>' +
+    '<p style="margin:0">받을 수업을 확인해 주세요. <span class="xd-note">(가장 가까운 수업일 수업이 미리 체크되어 있습니다)</span></p>' +
     '<ul>' + classes.map(function (c, i) {
-      return '<li data-i="' + i + '"><span class="xd-mark">대기</span><span class="xd-t"><span>' +
-        esc(c.title) + '</span><span class="xd-s">' + esc([c.date, c.count].filter(Boolean).join(' · ')) +
-        '</span></span></li>';
+      var badge = c.status === '접수중'
+        ? '<span class="xd-badge" style="background:#ecfdf3;color:#027a48">접수중</span>'
+        : '<span class="xd-badge" style="background:#fef3f2;color:#b42318">접수마감</span>';
+      return '<li data-i="' + i + '"><input type="checkbox" class="xd-chk" id="xdChk' + i + '"' + (c.checked ? ' checked' : '') + '>' +
+        '<span class="xd-mark">' + (c.checked ? '대기' : '제외') + '</span><label class="xd-t" for="xdChk' + i + '"><span>' +
+        badge + ' ' + esc(c.title) + '</span><span class="xd-s">' + esc([c.date, c.count].filter(Boolean).join(' · ')) +
+        '</span></label></li>';
     }).join('') + '</ul>' +
     '<div class="xd-box"><span class="xd-folder"></span></div>' +
     '<p class="xd-warn xd-tip"></p>' +
@@ -433,9 +463,30 @@
 
   var fallbackBtn = canPickFolder ? button('다운로드 폴더로 받기', 'xd-link', function () { start('chrome'); }) : null;
   var cancelBtn = button('취소', 'xd-btn', close);
-  var startBtn = button(classes.length + '개 받기', 'xd-btn xd-primary', function () {
+  var startBtn = button('받기', 'xd-btn xd-primary', function () {
     start(canPickFolder ? 'folder' : 'chrome');
   });
+
+  function selected() {
+    return classes.filter(function (c, i) {
+      var chk = body.querySelector('#xdChk' + i);
+      return chk && chk.checked;
+    });
+  }
+  function refreshCount() {
+    var n = selected().length;
+    startBtn.textContent = n + '개 받기';
+    startBtn.disabled = running || n === 0;
+    if (fallbackBtn) fallbackBtn.disabled = running || n === 0;
+    classes.forEach(function (c, i) {
+      var chk = body.querySelector('#xdChk' + i);
+      if (chk) mark(i, chk.checked ? '대기' : '제외', '#475569');
+    });
+  }
+  body.addEventListener('change', function (e) {
+    if (e.target && e.target.classList.contains('xd-chk')) refreshCount();
+  });
+  refreshCount();
 
   // 기억한 폴더 읽기. 혹시 읽다가 탭이 멈춘 적이 있으면(표시가 남아 있으면) 건너뛰고 다시 고르게 한다.
   var loadFolder = !canPickFolder ? Promise.resolve(null) : idbGet('reading').then(function (crashedBefore) {
@@ -456,10 +507,11 @@
     running = b;
     window.__excelDownBusy = b;
     [startBtn, cancelBtn, changeBtn, fallbackBtn].forEach(function (x) { if (x) x.disabled = b; });
+    body.querySelectorAll('.xd-chk').forEach(function (x) { x.disabled = b; });
   }
 
   function start(mode) {
-    if (running) return;
+    if (running || !selected().length) return;
     var ready = mode === 'folder'
       ? ensureFolder(dirHandle).then(function (h) { dirHandle = h; showFolder(); return h; })
       : Promise.resolve(null);
@@ -481,7 +533,9 @@
   function run(mode, dir) {
     var failed = [];
     var chain = Promise.resolve();
-    classes.forEach(function (c, i) {
+    var todo = selected();
+    todo.forEach(function (c, n) {
+      var i = classes.indexOf(c);
       chain = chain.then(function () {
         mark(i, '받는 중', '#1d4ed8');
         var job = mode === 'folder' ? saveToFolder(dir, c) : downloadViaChrome(c, i);
@@ -491,14 +545,14 @@
           failed.push({ item: c, detail: err && err.message ? err.message : '' });
           mark(i, '실패', '#b42318');
         }).then(function () {
-          if (i < classes.length - 1) return sleep(mode === 'folder' ? GAP_MS : IFRAME_GAP_MS);
+          if (n < todo.length - 1) return sleep(mode === 'folder' ? GAP_MS : IFRAME_GAP_MS);
         });
       });
     });
 
     return chain.then(function () {
       setBusy(false);
-      var ok = classes.length - failed.length;
+      var ok = todo.length - failed.length;
       var where = mode === 'folder' ? '「' + esc(dir.name) + '」 폴더' : '다운로드 폴더';
       var msg = document.createElement('div');
       msg.className = 'xd-result';
