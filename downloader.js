@@ -13,7 +13,7 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.3.0';
+  var VERSION = '1.3.1';
   var NAME = '통합예약 엑셀 일괄 받기';
   var LIST_PAGE = 'BD_selectReservationMngList.do';
   var EXCEL_URL = '/component/excel/download/ND_excelDownload.do';
@@ -30,6 +30,8 @@
   var WEBAPP_ORIGIN = new URL(WEBAPP_URL).origin;
   var WEBAPP_WINDOW = 'weekendChecker';
   var READY_WAIT_MS = 5 * 60 * 1000; // 웹앱 로그인을 기다리는 최대 시간
+  // 이 관리자 창의 이름: 점검 웹앱의 [통합예약 관리자 ↗] 버튼이 이 이름으로 이 창을 찾는다
+  try { if (window.name !== 'cmsAdmin') window.name = 'cmsAdmin'; } catch (e) {}
 
   if (window.__excelDownBusy) {
     alert(NAME + '\n\n이미 실행 중입니다. 잠시만 기다려 주세요.');
@@ -579,9 +581,15 @@
   }
 
   // 반드시 버튼 클릭 직후에 창을 연다 (나중에 열면 크롬이 팝업으로 막는다)
+  // 이미 연결된 점검 웹앱 창(이 창을 열었거나 이 창이 연 웹앱)이 있으면 새로 열거나 새로고침하지 않고 그 창을 쓴다
   function startSend() {
     if (running || !selected().length) return;
-    var win = window.open(WEBAPP_URL + '#from=cms', WEBAPP_WINDOW);
+    var win = window.open('', WEBAPP_WINDOW);
+    if (win) {
+      var fresh = false;
+      try { fresh = win.location.href === 'about:blank'; } catch (e) { fresh = false; } // 다른 사이트(웹앱)면 읽을 수 없음 = 이미 열린 웹앱
+      if (fresh) win.location.href = WEBAPP_URL + '#from=cms';
+    }
     if (!win) {
       alert(NAME + '\n\n크롬이 점검 웹앱 창을 막았습니다.\n주소창 오른쪽의 팝업 차단 표시를 눌러 「항상 허용」을 고른 뒤 다시 눌러 주세요.');
       return;

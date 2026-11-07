@@ -69,7 +69,8 @@
 - 신호: 패널 → `xd-hello`(1초마다) / 웹앱 → `wc-ready`(로그인·명단 불러오기 끝난 뒤) / 패널 → `xd-files`(엑셀 원본 ArrayBuffer, 이름, 받은 시각, 신청명) / 웹앱 → `wc-received` → 사용자 [올리기] → `wc-done`(결과) 또는 `wc-cancel`
 - 웹앱은 `CMS_ORIGIN`(기본 `https://cms.use.go.kr`)에서 온 메시지만, 패널은 `https://xleesjx.github.io` 창에만 보낸다.
 - 웹앱은 받은 엑셀을 [명단 올리기]와 같은 함수(uploadFromFiles)로 처리한다. 받은 시각 = 파일 시각.
-- 창은 버튼 클릭 순간 `window.open(…, 'weekendChecker')`로 연다 (팝업 차단 방지).
+- 창은 버튼 클릭 순간 `window.open('', 'weekendChecker')`로 찾고, 새 빈 창일 때만 웹앱 주소로 보낸다 (1.3.1: 열린 웹앱 창은 새로고침하지 않음).
+- 양쪽에서 서로 열기(1.3.1): 웹앱 창 이름 `weekendChecker`, 관리자 창 이름 `cmsAdmin`. 웹앱의 [통합예약 관리자 ↗]는 `window.open('', 'cmsAdmin')`으로 열린 관리자 창을 찾거나 목록 화면을 새로 연다. 한쪽이 다른 쪽을 열었을 때만 서로 찾을 수 있다 (크롬 규칙: 직접 따로 연 창은 못 찾음).
 - 통합 시험: 점검 웹앱 저장소 `test/cms-send.js` (가짜 관리자 화면 + 이 저장소의 downloader.js)
 - 아래는 처음 합의한 내용
 - 패널에 **[점검 웹앱으로 보내기]** 버튼 추가 → 웹앱 창을 열거나 그 창으로 이동 → `postMessage`로 반별 엑셀 데이터(원본 14열 그대로, 기타내용 포함) 전달.
