@@ -49,16 +49,18 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
       <li>통합예약 관리자 페이지에 <strong>직접 로그인</strong>합니다.</li>
       <li><strong>통합예약 관리 › 통합예약</strong> 목록 화면(수업 목록과 [신청 관리] 버튼이 보이는 화면)으로 갑니다.</li>
       <li>즐겨찾기바의 <strong>[통합예약 엑셀 일괄 받기]</strong>를 누릅니다.</li>
-      <li>창에 나온 수업 목록을 확인합니다. <strong>가장 가까운 수업일</strong> 수업이 미리 체크되어 있고, 체크를 켜고 끄면 받을 수업을 바꿀 수 있습니다. <strong>[○개 받기]</strong>를 누릅니다.</li>
-      <li>파일은 <strong><code>C:\통합예약명단</code></strong> 폴더에 바로 저장됩니다. 점검 웹앱에서 평소처럼 <strong>[명단 올리기]</strong>를 누릅니다.</li>
+      <li>창에 나온 수업 목록을 확인합니다. <strong>가장 가까운 수업일</strong> 수업이 미리 체크되어 있고, 체크를 켜고 끄면 받을 수업을 바꿀 수 있습니다.</li>
+      <li><strong>[○개 점검 웹앱으로 보내기]</strong>를 누릅니다. 점검 웹앱 창이 열리고(처음이면 웹앱에서 로그인), 명단이 파일 저장 없이 웹앱으로 바로 넘어갑니다.</li>
+      <li>점검 웹앱 창에 「명단 ○개가 왔습니다」가 뜨면 회차를 확인하고 <strong>[올리기]</strong>를 누릅니다. 결과는 이 창에도 표시됩니다.</li>
     </ol>
+    <p class="muted" style="margin-top:10px">크롬이 새 창(팝업)을 막았다고 하면, 주소창 오른쪽의 팝업 차단 표시를 눌러 <strong>「항상 허용」</strong>을 고른 뒤 다시 누릅니다. 파일로 받아 두고 싶을 때는 <strong>[○개 폴더에 저장]</strong>을 누르면 예전처럼 <code>C:\통합예약명단</code> 폴더에 저장되고, 점검 웹앱에서 [명단 올리기]로 올리면 됩니다.</p>
     <p class="muted" style="margin-top:10px">운영이 끝나지 않은 <strong>접수중·접수마감</strong> 수업이 목록에 나옵니다. 지난 수업과 접수대기 수업은 나오지 않습니다. 다음 주 수업은 목록에 보이되 체크가 꺼져 있으니, 방학 접수처럼 함께 받아야 할 때는 체크를 켜 주세요. 같은 이름의 파일이 이미 있으면 덮어쓰지 않고 이름 뒤에 (1), (2)…를 붙입니다.</p>
   </section>
 
   <section class="card">
-    <h2>3. 저장 폴더 정하기 (처음 한 번)</h2>
+    <h2>3. 폴더에 저장할 때: 저장 폴더 정하기 (처음 한 번)</h2>
     <ol>
-      <li>처음 [○개 받기]를 누르면 <strong>폴더 고르는 창</strong>이 뜹니다. <strong><code>C:\통합예약명단</code></strong>을 고르고 <strong>[폴더 선택]</strong>을 누릅니다. 폴더가 없으면 그 창에서 새 폴더로 만들면 됩니다.</li>
+      <li>처음 [○개 폴더에 저장]을 누르면 <strong>폴더 고르는 창</strong>이 뜹니다. <strong><code>C:\통합예약명단</code></strong>을 고르고 <strong>[폴더 선택]</strong>을 누릅니다. 폴더가 없으면 그 창에서 새 폴더로 만들면 됩니다.</li>
       <li>크롬이 「이 사이트가 폴더의 파일을 수정하도록 허용할까요?」라고 물으면 <strong>[허용]</strong>을 누릅니다. 「방문할 때마다 허용」이 보이면 그것을 고르면 다음부터 묻지 않습니다.</li>
       <li>버튼이 이 폴더를 기억합니다. 바꾸려면 창의 <strong>[폴더 바꾸기]</strong>를 누릅니다.</li>
       <li>점검 웹앱의 감시 폴더도 <code>C:\통합예약명단</code>으로 맞춰 주세요. 크롬 기본 다운로드 폴더는 원래대로 두면 됩니다.</li>
@@ -73,7 +75,7 @@ code{background:var(--bg);border:1px solid var(--line);border-radius:4px;padding
     <p class="muted" id="inlineState" style="font-size:14px">준비 중…</p>
   </section>
 
-  <p class="warn">이 버튼은 선생님이 로그인한 화면에서만 동작하며, 아이디·비밀번호나 신청자 정보를 어디에도 보내거나 저장하지 않습니다. 엑셀은 관리자 사이트의 [엑셀출력]과 똑같은 요청으로 받아 선생님 PC의 폴더에만 저장합니다.</p>
+  <p class="warn">이 버튼은 선생님이 로그인한 화면에서만 동작하며, 아이디·비밀번호나 신청자 정보를 어디에도 보내거나 저장하지 않습니다. 엑셀은 관리자 사이트의 [엑셀출력]과 똑같은 요청으로 받아, 선생님 PC의 폴더에 저장하거나 같은 PC에 열린 <strong>점검 웹앱 창(xleesjx.github.io)</strong>에만 넘깁니다.</p>
 </main>
 <script>
 (function () {

@@ -5,14 +5,15 @@
  *
  * 동작 방식: 각 수업의 [신청 관리] 버튼에 들어 있는 번호(opViewApplyList)를 읽고,
  * 신청자 목록 화면의 [엑셀출력](opExcel)이 보내는 것과 같은 요청을 보낸다.
- *  - 기본: 처음 한 번 고른 폴더(예: C:\통합예약명단)에 서버가 주는 파일 이름으로 직접 저장
+ *  - 기본(1.3.0~): 받은 엑셀을 파일로 저장하지 않고 점검 웹앱 창으로 바로 보낸다 (postMessage)
+ *  - 폴더 저장: 처음 한 번 고른 폴더(예: C:\통합예약명단)에 서버가 주는 파일 이름으로 직접 저장
  *          (같은 이름이 있으면 "이름 (1).xls"처럼 번호를 붙인다)
  *  - 예비: 크롬 다운로드 폴더로 받기 (숨은 iframe으로 [엑셀출력]과 똑같이 요청)
  */
 (function () {
   'use strict';
 
-  var VERSION = '1.2.1';
+  var VERSION = '1.3.0';
   var NAME = '통합예약 엑셀 일괄 받기';
   var LIST_PAGE = 'BD_selectReservationMngList.do';
   var EXCEL_URL = '/component/excel/download/ND_excelDownload.do';
@@ -23,6 +24,12 @@
   var GAP_MS = 1500; // 요청 사이 간격
   var IFRAME_GAP_MS = 2500; // 예비 방식에서 다운로드 사이 간격
   var ERROR_WAIT_MS = 6000; // 예비 방식에서 오류 화면이 돌아오는지 기다리는 시간
+  // 점검 웹앱 (명단을 보내는 곳). 이 주소의 창에만 보낸다.
+  // (시험할 때만 내 PC의 시험용 주소로 바꿀 수 있다)
+  var WEBAPP_URL = /^http:\/\/localhost(:\d+)?\//.test(window.__excelDownWebapp || '') ? window.__excelDownWebapp : 'https://xleesjx.github.io/weekend-checker/';
+  var WEBAPP_ORIGIN = new URL(WEBAPP_URL).origin;
+  var WEBAPP_WINDOW = 'weekendChecker';
+  var READY_WAIT_MS = 5 * 60 * 1000; // 웹앱 로그인을 기다리는 최대 시간
 
   if (window.__excelDownBusy) {
     alert(NAME + '\n\n이미 실행 중입니다. 잠시만 기다려 주세요.');
@@ -261,8 +268,8 @@
     return attempt(0);
   }
 
-  // ---------- 기본 방식: 폴더에 직접 저장 ----------
-  function saveToFolder(dir, item) {
+  // ---------- 엑셀 받기 (폴더 저장·웹앱 보내기 공통) → { name, blob } ----------
+  function fetchExcel(item) {
     var body = new URLSearchParams(excelParams(item));
     return fetch(EXCEL_URL, { method: 'POST', body: body, credentials: 'same-origin' })
       .then(function (res) {
@@ -277,16 +284,53 @@
         }
         return res.blob().then(function (blob) {
           if (!blob.size) throw new Error('빈 파일이 돌아왔습니다');
-          var name = safeName(fileNameFrom(disp) || fallbackName());
-          return uniqueName(dir, name).then(function (finalName) {
-            return dir.getFileHandle(finalName, { create: true }).then(function (fh) {
-              return fh.createWritable().then(function (w) {
-                return w.write(blob).then(function () { return w.close(); });
-              });
-            }).then(function () { return finalName; });
-          });
+          return { name: safeName(fileNameFrom(disp) || fallbackName()), blob: blob };
         });
       });
+  }
+
+  // ---------- 폴더에 직접 저장 ----------
+  function saveToFolder(dir, item) {
+    return fetchExcel(item).then(function (got) {
+      return uniqueName(dir, got.name).then(function (finalName) {
+        return dir.getFileHandle(finalName, { create: true }).then(function (fh) {
+          return fh.createWritable().then(function (w) {
+            return w.write(got.blob).then(function () { return w.close(); });
+          });
+        }).then(function () { return finalName; });
+      });
+    });
+  }
+
+  // ---------- 점검 웹앱으로 바로 보내기 ----------
+  // 웹앱이 로그인하고 명단을 다 불러오면 'wc-ready'로 답한다. 그때까지 1초마다 물어본다.
+  function waitMessage(win, type, ms, onTick) {
+    return new Promise(function (resolve, reject) {
+      var t0 = Date.now();
+      function onMsg(e) {
+        if (e.origin !== WEBAPP_ORIGIN || e.source !== win || !e.data || e.data.type !== type) return;
+        cleanup(); resolve(e.data);
+      }
+      var timer = setInterval(function () {
+        if (win.closed) { cleanup(); reject(new Error('점검 웹앱 창이 닫혔습니다.')); return; }
+        if (Date.now() - t0 > ms) { cleanup(); reject(new Error('점검 웹앱에서 답이 없습니다.')); return; }
+        if (onTick) onTick();
+      }, 1000);
+      function cleanup() { clearInterval(timer); window.removeEventListener('message', onMsg); }
+      window.addEventListener('message', onMsg);
+      if (onTick) onTick();
+    });
+  }
+
+  // 웹앱 결과(반영·건너뜀)는 웹앱이 보낸 것을 그대로 보여 준다
+  function waitDone(win) {
+    return new Promise(function (resolve) {
+      function onMsg(e) {
+        if (e.origin !== WEBAPP_ORIGIN || e.source !== win || !e.data) return;
+        if (e.data.type === 'wc-done' || e.data.type === 'wc-cancel') { window.removeEventListener('message', onMsg); resolve(e.data); }
+      }
+      window.addEventListener('message', onMsg);
+    });
   }
 
   // ---------- 예비 방식: 크롬 다운로드 폴더로 받기 ----------
@@ -440,7 +484,7 @@
     }
     folderLabel.innerHTML = dirHandle
       ? '저장 폴더: <strong>' + esc(dirHandle.name) + '</strong>'
-      : '저장 폴더: <strong>아직 고르지 않음</strong> (받기를 누르면 고르는 창이 뜹니다)';
+      : '저장 폴더: <strong>아직 고르지 않음</strong> ([폴더에 저장]을 누르면 고르는 창이 뜹니다)';
     tip.innerHTML = dirHandle
       ? '크롬이 <strong>「폴더에 저장 허용」</strong>을 물으면 <strong>[허용]</strong>(가능하면 「방문할 때마다 허용」)을 눌러 주세요.'
       : '폴더 고르는 창에서 <strong>' + esc(FOLDER_HINT) + '</strong>을 골라 주세요. (없으면 그 창에서 새 폴더로 만들 수 있습니다)';
@@ -464,9 +508,10 @@
 
   var fallbackBtn = canPickFolder ? button('다운로드 폴더로 받기', 'xd-link', function () { start('chrome'); }) : null;
   var cancelBtn = button('취소', 'xd-btn', close);
-  var startBtn = button('받기', 'xd-btn xd-primary', function () {
+  var startBtn = button('받기', 'xd-btn', function () {
     start(canPickFolder ? 'folder' : 'chrome');
   });
+  var sendBtn = button('점검 웹앱으로 보내기', 'xd-btn xd-primary', startSend);
 
   function selected() {
     return classes.filter(function (c, i) {
@@ -476,8 +521,10 @@
   }
   function refreshCount() {
     var n = selected().length;
-    startBtn.textContent = n + '개 받기';
+    startBtn.textContent = n + '개 ' + (canPickFolder ? '폴더에 저장' : '받기');
     startBtn.disabled = running || n === 0;
+    sendBtn.textContent = n + '개 점검 웹앱으로 보내기';
+    sendBtn.disabled = running || n === 0;
     if (fallbackBtn) fallbackBtn.disabled = running || n === 0;
     classes.forEach(function (c, i) {
       var chk = body.querySelector('#xdChk' + i);
@@ -501,13 +548,13 @@
   loadFolder.then(function (h) {
     if (h && h.kind === 'directory') dirHandle = h;
     showFolder();
-    startBtn.focus();
+    sendBtn.focus();
   });
 
   function setBusy(b) {
     running = b;
     window.__excelDownBusy = b;
-    [startBtn, cancelBtn, changeBtn, fallbackBtn].forEach(function (x) { if (x) x.disabled = b; });
+    [startBtn, sendBtn, cancelBtn, changeBtn, fallbackBtn].forEach(function (x) { if (x) x.disabled = b; });
     body.querySelectorAll('.xd-chk').forEach(function (x) { x.disabled = b; });
   }
 
@@ -528,6 +575,92 @@
       if (err && err.name === 'AbortError') return; // 폴더 고르기를 취소함
       alert(NAME + '\n\n' + (err && err.message ? err.message : '폴더를 열 수 없습니다.') +
         '\n\n다시 누르거나 [다운로드 폴더로 받기]를 써 주세요.');
+    });
+  }
+
+  // 반드시 버튼 클릭 직후에 창을 연다 (나중에 열면 크롬이 팝업으로 막는다)
+  function startSend() {
+    if (running || !selected().length) return;
+    var win = window.open(WEBAPP_URL + '#from=cms', WEBAPP_WINDOW);
+    if (!win) {
+      alert(NAME + '\n\n크롬이 점검 웹앱 창을 막았습니다.\n주소창 오른쪽의 팝업 차단 표시를 눌러 「항상 허용」을 고른 뒤 다시 눌러 주세요.');
+      return;
+    }
+    setBusy(true);
+    runSend(win);
+  }
+
+  function runSend(win) {
+    var failed = [], got = [];
+    var todo = selected();
+    var link = '점검 웹앱 창: <strong>연결 중…</strong> (처음이면 웹앱에서 로그인해 주세요)';
+    function showLink(t) { link = t; tip.innerHTML = link; }
+    showLink(link);
+    folderBox.style.display = 'none';
+    // 엑셀 받기와 웹앱 연결을 함께 진행한다
+    var ready = waitMessage(win, 'wc-ready', READY_WAIT_MS, function () {
+      try { win.postMessage({ type: 'xd-hello', version: VERSION }, WEBAPP_ORIGIN); } catch (e) {}
+    }).then(function (r) { showLink('점검 웹앱 창: <strong style="color:#027a48">연결됨</strong>'); return r; });
+    ready.catch(function () {});
+    var chain = Promise.resolve();
+    todo.forEach(function (c, n) {
+      var i = classes.indexOf(c);
+      chain = chain.then(function () {
+        mark(i, '받는 중', '#1d4ed8');
+        return fetchExcel(c).then(function (r) {
+          return r.blob.arrayBuffer().then(function (buf) {
+            got.push({ name: r.name, at: Date.now(), title: c.title, bytes: buf });
+            mark(i, '받음', '#027a48');
+          });
+        }, function (err) {
+          failed.push({ item: c, detail: err && err.message ? err.message : '' });
+          mark(i, '실패', '#b42318');
+        }).then(function () { if (n < todo.length - 1) return sleep(GAP_MS); });
+      });
+    });
+
+    var msg = document.createElement('div');
+    msg.className = 'xd-result';
+    function finish(html) {
+      setBusy(false);
+      msg.innerHTML = html + failed.map(function (f) {
+        return '<p class="xd-note">· 받지 못함: ' + esc(f.item.title) + (f.detail ? ' — ' + esc(f.detail) : '') + '</p>';
+      }).join('');
+      if (!msg.parentNode) body.appendChild(msg);
+      foot.innerHTML = '';
+      button('닫기', 'xd-btn xd-primary', close).focus();
+    }
+
+    return chain.then(function () {
+      if (!got.length) {
+        finish('<p style="margin:0;font-weight:700;color:#b42318">명단을 하나도 받지 못했습니다.</p><p class="xd-note">로그인이 끊겼을 수 있습니다. 다시 로그인한 뒤 버튼을 다시 눌러 주세요.</p>');
+        return;
+      }
+      msg.innerHTML = '<p style="margin:0;font-weight:700">' + got.length + '개 받음 · 점검 웹앱 연결을 기다리는 중…</p>';
+      body.appendChild(msg);
+      return ready.then(function () {
+        var done = waitDone(win);
+        win.postMessage({ type: 'xd-files', version: VERSION, files: got }, WEBAPP_ORIGIN, got.map(function (g) { return g.bytes; }));
+        msg.innerHTML = '<p style="margin:0;font-weight:700;color:#1d4ed8">' + got.length + '개를 점검 웹앱으로 보냈습니다.</p>' +
+          '<p class="xd-note">점검 웹앱 창에서 <strong>[올리기]</strong>를 눌러 주세요.</p>';
+        try { win.focus(); } catch (e) {}
+        // 웹앱이 한참 답이 없어도 이 창을 닫을 수 있도록 버튼을 풀어 둔다
+        setBusy(false);
+        foot.innerHTML = '';
+        button('닫기', 'xd-btn', close);
+        return done.then(function (r) {
+          if (r.type === 'wc-cancel') { finish('<p style="margin:0;font-weight:700">점검 웹앱에서 올리기를 취소했습니다.</p><p class="xd-note">필요하면 버튼을 다시 눌러 주세요.</p>'); return; }
+          if (!r.ok) { finish('<p style="margin:0;font-weight:700;color:#b42318">점검 웹앱에서 올리지 못했습니다.</p><p class="xd-note">' + esc(r.message || '') + '</p>'); return; }
+          var res = r.results || [];
+          var applied = res.filter(function (x) { return x.result === '반영'; }).length;
+          finish('<p style="margin:0;font-weight:700;color:#027a48">점검 웹앱에 올렸습니다 · 반영 ' + applied + '개' +
+            (res.length - applied ? ' · 그 밖 ' + (res.length - applied) + '개' : '') + (r.skipped ? ' · 접수 기간 밖 ' + r.skipped + '개' : '') + '</p>' +
+            res.map(function (x) { return '<p class="xd-note">· <strong>' + esc(x.result) + '</strong> ' + esc(x.title) + (x.detail ? ' — ' + esc(x.detail) : '') + '</p>'; }).join(''));
+        });
+      }, function (err) {
+        finish('<p style="margin:0;font-weight:700;color:#b42318">' + esc(err.message) + '</p>' +
+          '<p class="xd-note">점검 웹앱 창에서 로그인했는지 확인한 뒤 버튼을 다시 누르거나, [폴더에 저장]으로 받아 주세요.</p>');
+      });
     });
   }
 
