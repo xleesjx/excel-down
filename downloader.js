@@ -13,11 +13,13 @@
 (function () {
   'use strict';
 
-  var VERSION = '1.3.1';
+  var VERSION = '1.4.0';
   var NAME = '통합예약 엑셀 일괄 받기';
   var LIST_PAGE = 'BD_selectReservationMngList.do';
   var EXCEL_URL = '/component/excel/download/ND_excelDownload.do';
   var EXCEL_KEY = 'reservationNoContsCceAplyList';
+  var APLY_PAGE = '/intra/reservation/BD_selectReservationAplyList.do'; // 신청자 목록 화면 (신청일시·취소 시각)
+  var SEND_GAP_MS = 800; // 웹앱으로 보낼 때 반 사이 간격
   var STATUSES = ['접수중', '접수마감']; // 이 상태 중 운영이 끝나지 않은 수업이 대상
   var FOLDER_HINT = 'C:\\통합예약명단';
   var ROW_PER_PAGE = '500'; // 엑셀에 인원이 잘리지 않도록 넉넉하게
@@ -289,6 +291,49 @@
           return { name: safeName(fileNameFrom(disp) || fallbackName()), blob: blob };
         });
       });
+  }
+
+  // ---------- 신청자 목록 화면 읽기: 신청일련번호별 신청일시·취소 시각 (엑셀에는 없는 값) ----------
+  // 화면 줄: [체크박스 value=신청일련번호] 순번 이름 연락처 신청일시 신청구분 상태(예약취소<br>(시각)) …
+  var TS_RE = /(\d{4}-\d{2}-\d{2} \d{2}:\d{2}(?::\d{2})?)/;
+  function parseScreen(html) {
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    var out = {}, n = 0;
+    doc.querySelectorAll('input[name="sns"]').forEach(function (box) {
+      var sn = clean(box.value);
+      var tr = box.closest('tr');
+      if (!/^\d{1,12}$/.test(sn) || !tr) return;
+      var a = '', c = '';
+      tr.querySelectorAll('td').forEach(function (td) {
+        var t = clean(td.textContent);
+        if (/예약취소/.test(t)) { var m = TS_RE.exec(t); if (m) c = m[1]; }
+        else if (!a && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(t)) a = TS_RE.exec(t)[1];
+      });
+      out[sn] = { a: a, c: c };
+      n++;
+    });
+    return { map: out, count: n };
+  }
+
+  function fetchScreenPage(item, page) {
+    var q = new URLSearchParams({ q_rsvtRegSn: item.rsvtRegSn, q_rType: item.rType, q_siteSn: item.siteSn, q_rowPerPage: ROW_PER_PAGE, q_currPage: String(page) });
+    return fetch(APLY_PAGE + '?' + q.toString(), { credentials: 'same-origin' }).then(function (res) {
+      if (!res.ok) throw new Error('화면 ' + res.status);
+      return res.text();
+    }).then(parseScreen);
+  }
+
+  // 한 화면에 다 안 나오면(10명씩 등) 다음 쪽을 이어 읽는다
+  function fetchScreen(item) {
+    var all = {}, total = 0;
+    function more(page) {
+      return fetchScreenPage(item, page).then(function (r) {
+        var added = 0;
+        Object.keys(r.map).forEach(function (k) { if (!all[k]) { all[k] = r.map[k]; added++; total++; } });
+        if (added && r.count % 10 === 0 && r.count < +ROW_PER_PAGE && page < 30) return more(page + 1);
+      });
+    }
+    return more(1).then(function () { return { map: all, count: total }; });
   }
 
   // ---------- 폴더에 직접 저장 ----------
@@ -615,15 +660,20 @@
       var i = classes.indexOf(c);
       chain = chain.then(function () {
         mark(i, '받는 중', '#1d4ed8');
-        return fetchExcel(c).then(function (r) {
+        var t0 = Date.now();
+        // 엑셀과 화면을 동시에 받는다 (화면을 못 읽어도 엑셀은 그대로 보냄)
+        return Promise.all([fetchExcel(c), fetchScreen(c).catch(function () { return null; })]).then(function (both) {
+          var r = both[0], scr = both[1];
           return r.blob.arrayBuffer().then(function (buf) {
-            got.push({ name: r.name, at: Date.now(), title: c.title, bytes: buf });
-            mark(i, '받음', '#027a48');
+            got.push({ name: r.name, at: Date.now(), title: c.title, bytes: buf, extra: scr ? scr.map : null });
+            var cancels = scr ? Object.keys(scr.map).filter(function (k) { return scr.map[k].c; }).length : 0;
+            mark(i, '받음', '#027a48', [c.date, ((Date.now() - t0) / 1000).toFixed(1) + '초',
+              scr ? '화면 ' + scr.count + '명' + (cancels ? ' · 취소 ' + cancels + '명' : '') : '화면을 못 읽어 취소 시각 없음'].join(' · '));
           });
         }, function (err) {
           failed.push({ item: c, detail: err && err.message ? err.message : '' });
           mark(i, '실패', '#b42318');
-        }).then(function () { if (n < todo.length - 1) return sleep(GAP_MS); });
+        }).then(function () { if (n < todo.length - 1) return sleep(SEND_GAP_MS); });
       });
     });
 
